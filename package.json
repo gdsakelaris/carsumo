@@ -1,0 +1,17 @@
+{
+  "name": "car-sumo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Online multiplayer car sumo: push the other car off a platform above lava.",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tools/test_sim.mjs && node tools/smoke.mjs",
+    "share": "node tools/share.mjs"
+  },
+  "dependencies": {
+    "three": "0.170.0",
+    "ws": "8.18.0"
+  }
+}

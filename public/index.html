@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Car Sumo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2714%27 fill=%27%23ff7a1a%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%277%27 fill=%27%23140912%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+<script type="importmap">{ "imports": { "three": "/vendor/three.module.js", "three/addons/": "/vendor/jsm/" } }</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="flash"></div>
+
+<!-- Lobby -->
+<section id="lobby" class="panel">
+  <header class="lobby-head">
+    <h1>CAR <span>SUMO</span></h1>
+    <p class="sub">Two cars. One platform. Push them off.</p>
+  </header>
+  <div class="lobby-row">
+    <label class="field">Your name <input id="nameInput" maxlength="16" placeholder="Driver" autocomplete="off"></label>
+    <label class="field">Arena look
+      <select id="themeSel"><option value="lava">Lava</option><option value="water">Water</option></select>
+    </label>
+    <label class="field">Map (practice)
+      <select id="mapSel"></select>
+    </label>
+    <label class="field">Practice bot
+      <select id="botSel"><option value="random">Random car</option></select>
+    </label>
+    <label class="field">Quality
+      <select id="qualSel"><option value="auto">Auto</option><option value="high">High</option><option value="low">Low</option></select>
+    </label>
+  </div>
+  <div id="carGrid" class="car-grid"></div>
+  <div class="lobby-actions">
+    <button id="btnBot" class="btn ghost">Practice vs bot</button>
+    <button id="btnMatch" class="btn primary">Find a match</button>
+  </div>
+  <p id="lobbyShare" class="hint share-line hidden"></p>
+  <p class="hint">Drive <b>W A S D</b> · Brake / drift <b>Space</b> · Jump <b>C</b> · Ability <b>E</b> or <b>click</b> · Camera <b>V</b> · Look <b>mouse</b> · Zoom <b>wheel</b></p>
+</section>
+
+<!-- Waiting -->
+<section id="waiting" class="panel hidden">
+  <div class="spinner"></div>
+  <h2 id="waitText">Looking for an opponent…</h2>
+  <p class="sub" id="waitSub">Send a friend this link and they will be matched with you.</p>
+  <div class="share"><code id="shareUrl"></code><button id="btnCopy" class="btn small ghost" type="button">Copy</button></div>
+  <p class="hint" id="shareNote"></p>
+  <button id="btnCancel" class="btn ghost">Cancel</button>
+</section>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-top">
+    <div id="scoreboard" class="score"></div>
+    <div id="roundLabel" class="round">Round 1</div>
+    <div id="mapLabel" class="map-tag">Crater</div>
+    <div id="ping" class="ping">— ms</div>
+  </div>
+  <div id="banner" class="banner"></div>
+  <div id="shrinkWarn" class="shrink hidden">THE PLATFORM IS SHRINKING</div>
+  <div id="deadNote" class="dead hidden">Wiped out — spectating</div>
+  <div class="hud-bottom">
+    <div class="skill" id="jumpBox"><div class="cd"></div><div class="key">C</div><div class="lbl">Jump</div></div>
+    <div class="skill big" id="abilityBox"><div class="cd"></div><div class="key">E</div><div class="lbl" id="abilityName">Ability</div></div>
+    <div class="skill" id="camBox"><div class="key">V</div><div class="lbl" id="camLbl">Chase cam</div></div>
+  </div>
+</div>
+
+<!-- Touch controls (phones and tablets) -->
+<div id="touch" class="hidden">
+  <div id="stick"><div id="knob"></div></div>
+  <div class="tbtns">
+    <button id="tAb" type="button">ABILITY</button>
+    <button id="tJump" type="button">JUMP</button>
+    <button id="tBrake" type="button">BRAKE</button>
+  </div>
+</div>
+
+<!-- Match over -->
+<section id="matchOver" class="panel hidden">
+  <h2 id="moTitle">You win!</h2>
+  <p id="moScore" class="sub"></p>
+  <div class="lobby-actions">
+    <button id="btnLeave" class="btn ghost">Back to lobby</button>
+    <button id="btnRematch" class="btn primary">Rematch</button>
+  </div>
+  <p id="rematchStatus" class="hint"></p>
+</section>
+
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="/main.js"></script>
+</body>
+</html>
