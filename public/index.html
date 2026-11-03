@@ -16,7 +16,7 @@
 <section id="lobby" class="panel">
   <header class="lobby-head">
     <h1>CAR <span>SUMO</span></h1>
-    <p class="sub">Two cars. One platform. Push them off.</p>
+    <p class="sub">Nine cars. One platform. Push them off.</p>
   </header>
   <div class="lobby-row">
     <label class="field">Your name <input id="nameInput" maxlength="16" placeholder="Driver" autocomplete="off"></label>
@@ -39,7 +39,7 @@
     <button id="btnMatch" class="btn primary">Find a match</button>
   </div>
   <p id="lobbyShare" class="hint share-line hidden"></p>
-  <p class="hint">Drive <b>W A S D</b> · Brake / drift <b>Space</b> · Jump <b>C</b> · Ability <b>E</b> or <b>click</b> · Camera <b>V</b> · Look <b>mouse</b> · Zoom <b>wheel</b></p>
+  <p class="hint">Drive <b>W A S D</b> · Brake / drift <b>Space</b> · Jump <b>C</b> · Ability 1 <b>E</b> or <b>left click</b> · Ability 2 <b>Q</b> or <b>right click</b> · Camera <b>V</b> · Pause <b>Esc</b></p>
 </section>
 
 <!-- Waiting -->
@@ -58,7 +58,10 @@
     <div id="scoreboard" class="score"></div>
     <div id="roundLabel" class="round">Round 1</div>
     <div id="mapLabel" class="map-tag">Crater</div>
-    <div id="ping" class="ping">— ms</div>
+    <div class="hud-right">
+      <div id="ping" class="ping">— ms</div>
+      <button id="btnPause" class="pause-btn" type="button" title="Pause (Esc)">❚❚</button>
+    </div>
   </div>
   <div id="banner" class="banner"></div>
   <div id="shrinkWarn" class="shrink hidden">THE PLATFORM IS SHRINKING</div>
@@ -66,15 +69,28 @@
   <div class="hud-bottom">
     <div class="skill" id="jumpBox"><div class="cd"></div><div class="key">C</div><div class="lbl">Jump</div></div>
     <div class="skill big" id="abilityBox"><div class="cd"></div><div class="key">E</div><div class="lbl" id="abilityName">Ability</div></div>
+    <div class="skill big" id="ability2Box"><div class="cd"></div><div class="key">Q</div><div class="lbl" id="ability2Name">Ability</div></div>
     <div class="skill" id="camBox"><div class="key">V</div><div class="lbl" id="camLbl">Chase cam</div></div>
   </div>
 </div>
+
+<!-- Pause -->
+<section id="paused" class="panel pause hidden">
+  <h2>PAUSED</h2>
+  <p class="sub" id="pauseBy"></p>
+  <div class="lobby-actions">
+    <button id="btnResume" class="btn primary">Resume</button>
+    <button id="btnQuit" class="btn ghost">Leave match</button>
+  </div>
+  <p class="hint" id="pauseHint">Either driver can resume. Press <b>Esc</b> or click Resume.</p>
+</section>
 
 <!-- Touch controls (phones and tablets) -->
 <div id="touch" class="hidden">
   <div id="stick"><div id="knob"></div></div>
   <div class="tbtns">
-    <button id="tAb" type="button">ABILITY</button>
+    <button id="tAb" type="button">ABILITY 1</button>
+    <button id="tAb2" type="button">ABILITY 2</button>
     <button id="tJump" type="button">JUMP</button>
     <button id="tBrake" type="button">BRAKE</button>
   </div>

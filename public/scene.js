@@ -7,6 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { RULES } from '/shared/sim.js';
+import { ballPose } from '/shared/maps.js';
 
 export const LIQUID_Y = RULES.killY;
 
@@ -480,12 +481,57 @@ const fissureMat = new THREE.ShaderMaterial({
       gl_FragColor = vec4(col, 1.0);
     }`,
 });
-export const mapProps = { group: new THREE.Group(), posts: [] };
+export const mapProps = { group: new THREE.Group(), posts: [], balls: [] };
 scene.add(mapProps.group);
+const ironMat = new THREE.MeshStandardMaterial({ color: 0x3a3b40, roughness: 0.5, metalness: 0.92 });
+const chainMat = new THREE.MeshStandardMaterial({ color: 0x55575c, roughness: 0.45, metalness: 0.95 });
+const hazardMat = new THREE.MeshStandardMaterial({ color: 0xffcf3f, roughness: 0.5, metalness: 0.3 });
+function latticeTower(h, w) {
+  const t = new THREE.Group();
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.28, h, 0.28), poleMat); leg.position.set(sx * w / 2, h / 2, sz * w / 2); leg.castShadow = true; t.add(leg); }
+  for (let y = 2; y < h; y += 3) {
+    for (const [a, b] of [[[-1, -1], [1, -1]], [[1, -1], [1, 1]], [[1, 1], [-1, 1]], [[-1, 1], [-1, -1]]]) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, w), poleMat);
+      bar.position.set((a[0] + b[0]) / 2 * w / 2, y, (a[1] + b[1]) / 2 * w / 2); bar.rotation.y = a[0] === b[0] ? 0 : Math.PI / 2; t.add(bar);
+      const diag = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, Math.hypot(w, 3)), poleMat);
+      diag.position.copy(bar.position); diag.position.y = y + 1.5; diag.rotation.y = bar.rotation.y; diag.rotation.x = Math.atan2(3, w) * (y % 6 ? 1 : -1); t.add(diag);
+    }
+  }
+  return t;
+}
 export function buildMapProps(map) {
   const g = mapProps.group;
   while (g.children.length) g.remove(g.children[0]);
-  mapProps.posts = [];
+  mapProps.posts = []; mapProps.balls = [];
+  if (map.balls && map.balls.length) {
+    // one gantry per beam line: rock columns outside the deck, lattice towers, a beam across, pivots, chains, balls
+    const lines = [...new Set(map.balls.map((b) => b.z))];
+    for (const z of lines) {
+      const span = RULES.platformR0 + 6, top = Math.max(...map.balls.map((b) => b.py)) + 1.0;
+      for (const sx of [-1, 1]) {
+        const colH = -LIQUID_Y + 1;
+        const col = new THREE.Mesh(rockyCylinder(3.2, 6.5, colH, 24, 10, 0.5, 120 + sx), rockMat); col.position.set(sx * span, LIQUID_Y - 2 + colH / 2, z); col.castShadow = true; col.receiveShadow = true; g.add(col);
+        const tower = latticeTower(top + 2, 2.2); tower.position.set(sx * span, -2, z); g.add(tower);
+      }
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(span * 2 + 2.2, 1.0, 1.0), poleMat); beam.position.set(0, top, z); beam.castShadow = true; g.add(beam);
+      for (let i = -1; i <= 1; i += 2) { const rail = new THREE.Mesh(new THREE.BoxGeometry(span * 2 + 2.2, 0.12, 0.12), hazardMat); rail.position.set(0, top + 0.56, z + i * 0.44); g.add(rail); }
+    }
+    for (const b of map.balls) {
+      const pivot = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.0, 1.3), ironMat); pivot.position.set(b.x, b.py, b.z); g.add(pivot);
+      const hook = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.07, 8, 16), chainMat); hook.position.set(b.x, b.py - 0.6, b.z); g.add(hook);
+      const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 1, 8), chainMat); chain.castShadow = true; g.add(chain);
+      const links = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 1, 6, 1, true), new THREE.MeshStandardMaterial({ color: 0x2a2b2f, roughness: 0.6, metalness: 0.9, side: THREE.DoubleSide, wireframe: true })); chain.add(links);
+      const ball = new THREE.Group();
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(b.r, 28, 20), ironMat); sphere.castShadow = true; sphere.receiveShadow = true; ball.add(sphere);
+      const stripe = new THREE.Mesh(new THREE.TorusGeometry(b.r * 0.98, 0.09, 8, 48), hazardMat); stripe.rotation.x = Math.PI / 2; ball.add(stripe);
+      for (let i = 0; i < 12; i++) { const bolt = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), chainMat); const a = (i / 12) * Math.PI * 2; bolt.position.set(Math.cos(a) * b.r * 0.92, b.r * 0.38, Math.sin(a) * b.r * 0.92); ball.add(bolt); }
+      const eye = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.08, 8, 16), chainMat); eye.position.y = b.r + 0.2; ball.add(eye);
+      const glowSp = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex, color: 0xffcf3f, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })); glowSp.scale.set(b.r * 3, b.r * 3, 1); ball.add(glowSp);
+      g.add(ball);
+      mapProps.balls.push({ def: b, chain, ball });
+    }
+    updateBalls(0);
+  }
   for (const b of map.bumpers) {
     const post = new THREE.Group(); post.position.set(b.x, 0, b.z);
     const body = new THREE.Mesh(new THREE.CylinderGeometry(b.r, b.r, 2.4, 32), postMat); body.position.y = 1.2; body.castShadow = true; body.receiveShadow = true; post.add(body);
@@ -508,6 +554,64 @@ export function buildMapProps(map) {
 export function setMapRadius(r) {
   fissureMat.uniforms.uR.value = r;
   for (const p of mapProps.posts) p.mesh.visible = Math.hypot(p.x, p.z) + p.r <= r + 0.5;
+}
+const UPV = new THREE.Vector3(0, 1, 0), tmpD = new THREE.Vector3();
+// Wrecking balls: pure function of simulation time, so every client agrees with the server.
+export function updateBalls(t) {
+  for (const { def: b, chain, ball } of mapProps.balls) {
+    const p = ballPose(b, t);
+    ball.position.set(p.x, p.y, p.z);
+    ball.rotation.set(0, 0, 0); ball.rotateOnAxis(tmpD.set(Math.cos(b.a), 0, -Math.sin(b.a)).normalize(), p.th);
+    const hx = b.x, hy = b.py - 0.6, hz = b.z;
+    tmpD.set(p.x - hx, p.y - hy, p.z - hz); const full = tmpD.length(), len = Math.max(0.1, full - b.r), k = len / full;
+    chain.position.set(hx + tmpD.x * 0.5 * k, hy + tmpD.y * 0.5 * k, hz + tmpD.z * 0.5 * k);
+    chain.scale.set(1, len, 1); chain.quaternion.setFromUnitVectors(UPV, tmpD.normalize());
+  }
+}
+
+// ------------------------------------------------------------------ dropped hazards: mines and oil (from snapshots)
+const hazards = new THREE.Group(); scene.add(hazards);
+const mineMeshes = new Map(), oilMeshes = new Map();
+const mineBody = new THREE.MeshStandardMaterial({ color: 0x2b2d31, roughness: 0.4, metalness: 0.85 });
+function makeMine() {
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 0.22, 16), mineBody); base.position.y = 0.11; base.castShadow = true; g.add(base);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.42, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), mineBody); dome.position.y = 0.2; g.add(dome);
+  for (let i = 0; i < 8; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.22, 6), chainMat); const a = (i / 8) * Math.PI * 2; sp.position.set(Math.cos(a) * 0.5, 0.3, Math.sin(a) * 0.5); sp.rotation.set(0, -a, -Math.PI / 2); g.add(sp); }
+  const lampMat = new THREE.MeshStandardMaterial({ color: 0x606060, emissive: 0xff2020, emissiveIntensity: 0.3, roughness: 0.3 });
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), lampMat); lamp.position.y = 0.62; g.add(lamp);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex, color: 0xff3030, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); halo.scale.set(2.2, 2.2, 1); halo.position.y = 0.65; g.add(halo);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(1.7, 2.0, 40), new THREE.MeshBasicMaterial({ color: 0xff3030, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.04; g.add(ring);
+  g.userData = { lamp: lampMat, halo: halo.material, ring: ring.material };
+  return g;
+}
+export function syncMines(list, worldT) {
+  const seen = new Set();
+  for (const m of list) {
+    seen.add(m.id);
+    let g = mineMeshes.get(m.id);
+    if (!g) { g = makeMine(); g.position.set(m.x, 0, m.z); hazards.add(g); mineMeshes.set(m.id, g); }
+    const armed = worldT >= m.armAt, u = g.userData, blink = 0.5 + 0.5 * Math.sin(worldT * (armed ? 16 : 5));
+    u.lamp.emissiveIntensity = armed ? 0.8 + 2.4 * blink : 0.25 + 0.3 * blink;
+    u.lamp.color.set(armed ? 0xff4040 : 0x707070);
+    u.halo.opacity = armed ? 0.25 + 0.45 * blink : 0;
+    u.ring.opacity = armed ? 0.18 + 0.25 * blink : 0.06;
+  }
+  for (const [id, g] of mineMeshes) if (!seen.has(id)) { hazards.remove(g); mineMeshes.delete(id); }
+}
+const oilMat = new THREE.MeshStandardMaterial({ color: 0x07070a, roughness: 0.1, metalness: 0.75, transparent: true, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, depthWrite: false, envMapIntensity: 1.6 });
+export function syncOil(list, worldT) {
+  const seen = new Set();
+  for (const o of list) {
+    const key = `${o.x.toFixed(2)},${o.z.toFixed(2)}`; seen.add(key);
+    let m = oilMeshes.get(key);
+    if (!m) {
+      m = new THREE.Mesh(new THREE.CircleGeometry(o.r, 30), oilMat.clone()); m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6.28;
+      m.position.set(o.x, 0.032, o.z); m.scale.set(1, 0.82 + Math.random() * 0.3, 1); m.renderOrder = 2; hazards.add(m); oilMeshes.set(key, m);
+    }
+    m.material.opacity = 0.9 * Math.max(0, Math.min(1, (o.t - worldT) / 1.2));
+  }
+  for (const [key, m] of oilMeshes) if (!seen.has(key)) { hazards.remove(m); m.geometry.dispose(); m.material.dispose(); oilMeshes.delete(key); }
 }
 
 // ------------------------------------------------------------------ theme + per-frame

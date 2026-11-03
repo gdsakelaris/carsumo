@@ -1,8 +1,9 @@
 # Car Sumo
 
 Online multiplayer car sumo. Two cars on a round deck held 14 m above lava (or water) by a rock
-pillar. Push the other car off the edge and watch it drop. First to three rounds wins. Six cars, each with one special ability on a cooldown,
-plus jump and drift for everyone. The platform starts shrinking after 35 seconds so nobody can hide.
+pillar. Push the other car off the edge and watch it drop. First to three rounds wins. Nine cars, each
+with two abilities on cooldowns and a passive trait, plus jump and drift for everyone. The platform
+starts shrinking after 35 seconds so nobody can hide. Either driver can pause with Esc.
 
 Plain JavaScript + Three.js in the browser, Node + `ws` on the server, no bundler, no build step.
 Everything you see and hear is generated in code: car bodies are extruded side profiles with clearcoat
@@ -53,10 +54,11 @@ Three maps today, chosen in the lobby for practice and rotated for matches:
 |---|---|
 | Crater | The open round deck |
 | Pillars | Four steel posts that cars bounce off hard |
-| Fissure | A lava crack across the deck: jump it or fall through it |
+| Wrecking Yard | Two wrecking balls on chains swing across the deck from a gantry, half a swing apart. A ball at the bottom of its swing is doing 20 m/s and throws a car into the air and across the deck. Each ball only reaches the deck within about 5 m of its pivot, so the lanes between and outside them are safe. |
 
 The map table lives in `shared/maps.js`; the simulation, the bot and the client all read it, so a
-new map is a few lines of bumpers and holes.
+new map is a few lines of bumpers, holes or balls. A ball's position is a pure function of time
+(pivot, chain length, amplitude, period, phase), so nothing about it has to be sent over the network.
 
 ## Controls
 
@@ -64,7 +66,9 @@ new map is a few lines of bumpers and holes.
 |---|---|
 | Drive | W A S D or arrows |
 | Jump | C (3 s cooldown) |
-| Ability | E or left click |
+| Ability 1 | E or left click |
+| Ability 2 | Q or right click |
+| Pause | Esc (either driver; either driver resumes; lifts itself after 90 s) |
 | Brake / drift | Space (Shift also works): less grip, sharper turn |
 | Camera | V (chase cam or arena cam) |
 | Look around | Mouse (captured when you start driving; Esc releases it) |
@@ -72,39 +76,45 @@ new map is a few lines of bumpers and holes.
 | In the air | Steer a little, brake to dive back down; a jump still works for 0.2 s after you leave the edge |
 
 On a phone a left-thumb stick and brake / jump / ability buttons appear, and the renderer drops to the
-low preset (no bloom or soft shadows). The Quality select in the lobby forces high or low.
+low preset (no bloom or soft shadows). The Quality select in the lobby forces high or low. The pause
+button at the top right works with a finger or a mouse.
 
 ## The cars
 
-| Car | Feel | Ability |
-|---|---|---|
-Each car also has a passive trait, shown on its lobby card: Bulldozer takes less knockback, Flipper is
-never stunned, Speedster jumps every 2 s, Anchor cannot be flipped, Magnet stings whoever bumps it,
-Spinner never gets twisted, Wrecker cannot be dragged by a tractor beam.
+Every car has two abilities (E and Q) and a passive trait, all shown on its lobby card. Cooldowns
+count from the press.
 
-| Bulldozer | heavy, slow | **Ram** (0.7 s, 6 s cooldown): charges forward, triple weight, brutal shove on contact |
-| Flipper | balanced | **Flip** (0.6 s, 7 s): the next car it touches is launched into the air with no control |
-| Speedster | fast, light | **Nitro** (1.3 s, 4.5 s): big burst of speed; light, so hits send it far |
-| Anchor | heavy, grippy | **Brace** (2 s, 8 s): five times the weight and a dead stop; rammers bounce off |
-| Magnet | balanced | **Tractor** (1.6 s, 8 s): pulls the other car toward it from up to 18 m |
-| Wrecker | heavy, slow | **Grab** (2.6 s, 10 s): the claw snaps down; whatever it catches is lifted, carried in front while you drive, and dropped when you press again. Carry them to the edge. |
-| Spinner | balanced | **Spin-up** (3 s, 9 s): every touch flings the other car sideways; own steering gets heavy |
+| Car | Feel | E | Q | Passive |
+|---|---|---|---|---|
+| Bulldozer | heavy, slow | **Ram** (0.7 s, 6 s): charge forward, triple weight, brutal shove on contact | **Blade down** (2 s, 10 s): dig in; 3.5x weight, shoves bleed off, slow | takes 25% less knockback from abilities and hazards |
+| Flipper | balanced, nimble | **Flip** (0.6 s, 7 s): arm the wedge; the next car touched is launched. Get under its nose or tail and it lands on its roof for about two seconds, helpless, scraping to a stop; any push still moves it | **Pounce** (0.8 s, 7 s): a long forward leap over cars and mines; landing on a roof slams that car down and away | never stunned |
+| Speedster | fastest, light | **Nitro** (1.3 s, 5 s): big burst of speed | **Snap turn** (0.25 s, 5 s): kill momentum and whip round toward the steering side (180 with no steering); bait them off the edge | jumps every 2 s |
+| Anchor | heavy, grippy | **Brace** (1.75 s, 8 s): six times the weight and a dead stop; rammers bounce off | **Countershock** (10 s): a shockwave that throws every car within 6.5 m straight away; 1.6x stronger and wider within 0.6 s of taking a hit | cannot be flipped |
+| Magnet | balanced | **Tractor** (1.6 s, 8 s): pulls the other car toward it from up to 22 m | **Repulsion** (10 s): throws every car within 10 m away and kicks the Magnet backward | whoever bumps it is stunned briefly |
+| Spinner | balanced | **Spin-up** (3 s, 9 s): every touch flings the other car sideways; own steering gets heavy | **Gyro counter** (0.8 s, 9 s): triple weight for the window, and the first car that touches it is hurled straight back | never gets twisted by hits |
+| Wrecker | heavy, slow | **Grab** (10 s): the claw snaps down; what it catches is lifted and carried in front for 1.5 s at little more than half speed, then dropped. Press again to drop early | **Jackknife** (0.5 s, 9 s): whip the truck round; the swing sweeps away anything it touches, and a car in the claw is flung sideways at 13 m/s | cannot be dragged by a tractor beam |
+| Greaser | fast, light | **Oil slick** (1 s, 9 s): a trail of up to five oil patches behind the car that last 7 s; cars on oil keep a tenth of their grip and steering and slide | **Powerslide** (0.6 s, 7 s): throw the tail out through 140 degrees; anything the rear catches is shoved hard sideways | never slips on oil |
+| Boomer | balanced | **Pop mine** (8 s): drop a mine behind the car (two out at a time, armed after 1 s, gone after 14 s); a car driving over it is blown 9 m/s into the air and away, and stunned | **Blast jump** (10 s): hop into the air and knock every car within 5.5 m back | its own mines and blasts never hurt it |
 
-Hits by Ram, Flip and Spin-up also stun the victim briefly (no steering or throttle for a third of a
-second), which is what makes a good hit feel decisive. A well-timed jump clears a charging car.
+Hits by Ram, Flip, Spin-up, the sweeps, the shockwaves, mines and wrecking balls also stun the victim
+briefly (no steering or throttle for a third of a second or so), and a car that has just been hit
+loses most of its grip for 0.4 s so the shove carries. Plain bumps matter too: restitution is 0.6 and
+whoever drives into the contact harder gives the other car an extra shove of up to 9 m/s on top of
+the bounce. A well-timed jump clears a charging car.
 
 ## How it works
 
 ```
 server.js            HTTP static files + WebSocket rooms + 60 Hz authoritative simulation, 20 Hz snapshots
-server/bot.js        practice opponent (drives at you, respects the edge, uses its ability, sometimes hops)
-shared/cars.js       the six car definitions (stats, abilities, colours)
+server/bot.js        practice opponent (drives at you, respects the edge, uses both abilities, dodges balls, mines, oil)
+shared/cars.js       the nine car definitions (stats, two abilities each, passive, colours)
 shared/sim.js        the whole game simulation: driving model, jump, edge/fall, collisions, abilities,
-                     platform shrink, rounds and match
+                     oil, mines, wrecking balls, platform shrink, rounds and match
+shared/maps.js       the arena table (bumpers, holes, wrecking balls) and the ball pendulum
 public/main.js       game client: networking, HUD, lobby, input, mouse camera, per-frame car animation
 public/scene.js      renderer + bloom, shadow-casting lights, sky, reflections, lava/water shader, steel deck,
-                     rock pillar, boulders, embers, theme switching
-public/carmodel.js   the six car models (extruded bodies, glass, treaded wheels, lamps, underglow, hardware)
+                     rock pillar, boulders, embers, theme switching, map props (posts, gantry and balls, mines, oil)
+public/carmodel.js   the nine car models (extruded bodies, glass, treaded wheels, lamps, underglow, hardware)
 public/fx.js         sparks, tyre smoke and dust, magnet streams, splashes
 public/net.js        WebSocket client with ping and reconnect
 public/sfx.js        synthesised sound design (engine, skid, wind, impacts, abilities, splash, ambience, reverb)
@@ -118,7 +128,10 @@ tools/nan_probe.py   reads the HDR frame + bloom buffers back and counts NaN/Inf
 
 - **Authority.** The server owns the game. Clients send their input 30 times a second (throttle,
   steer, brake, and one-shot jump / ability presses, latched until the server consumes them). The
-  server simulates at a fixed 60 Hz and broadcasts a snapshot every third tick.
+  server simulates at a fixed 60 Hz and broadcasts a snapshot every third tick. A pause is a room
+  flag: the room stops stepping, tells both clients who paused, and resumes on either client's say-so
+  or after 90 s. Snapshots also carry the live oil patches and mines; the wrecking balls are derived
+  from the snapshot time.
 - **Smoothing and prediction.** Other cars render 100 ms behind the newest snapshot, interpolated
   between the two snapshots that bracket that time. Your own car is predicted: the browser runs the
   shared simulation step for it with your inputs immediately (collisions included, against the other
@@ -128,7 +141,8 @@ tools/nan_probe.py   reads the HDR frame + bloom buffers back and counts NaN/Inf
   key even across the country, and the server still has the final say. `?predict=0` turns it off.
 - **Physics.** Cars are capsules on a plane for collisions (a rounded rectangle along the heading, so
   a nose touching a flank is a real contact; the spinner blade and flipper wedge extend it while active),
-  resolved with an impulse (restitution 0.45), contact friction so cars grab instead of sliding past,
+  resolved with an impulse (restitution 0.6 plus a shove for the car that is hit, cut back when a
+  contact ability already adds its own), contact friction so cars grab instead of sliding past,
   and an angular kick from off-centre hits. A car that lands on another bounces off its roof. The
   arcade driving model has forward acceleration and top speed, strong lateral
   grip (less with the handbrake), steering that scales with speed, and a height axis for jumps and
@@ -157,8 +171,7 @@ screenshot tool).
 - Rooms you can invite friends into by code (today: a shared queue, first two to click are paired).
 - Artist-made car models and textures. The cars are built from code; dropping in glTF models is the
   next visual step, and a real GPU is assumed (bloom, soft shadows and MSAA are on by default).
-- Multiple maps. Today the arena is one round deck whose numbers (radius, shrink timing, drop height,
-  spawn ring) live in `RULES` in `shared/sim.js`, and lava vs water is only a look. The plan is a
-  `shared/maps.js` table the room picks from, so each map can set those numbers plus its own features
-  (moving tiles, bumpers, ramps, gaps), with the client building the scene from the chosen map.
+- More maps. `shared/maps.js` has bumpers, holes and swinging balls; moving tiles and ramps would be
+  the next feature types, and per-map rule overrides (radius, shrink timing) are not wired yet.
+- Balance passes with real players. The nine-car roster and the numbers above are a first tuning.
 - Binary snapshots (JSON today; fine at 2 to 4 cars).

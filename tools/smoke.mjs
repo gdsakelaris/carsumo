@@ -62,6 +62,22 @@ try {
   const start2 = await A.until((m) => m.t === 'start' && m !== startA, 3000);
   check('rematch restarts the match', !!start2);
 
+  // Pause: either side can pause and either side can resume; the simulation stands still meanwhile.
+  await A.until((m) => m.t === 'state' && m.tick > 10 && m !== snap, 5000);
+  A.ws.send(JSON.stringify({ t: 'pause', on: true }));
+  const pausedMsg = await B.until((m) => m.t === 'pause' && m.on, 3000);
+  check('pause from one driver reaches the other with their name', pausedMsg.by === 'Alice', pausedMsg.by);
+  await new Promise((r) => setTimeout(r, 150));
+  const tickA = [...A.msgs].reverse().find((m) => m.t === 'state').tick;
+  await new Promise((r) => setTimeout(r, 400));
+  const tickB = [...A.msgs].reverse().find((m) => m.t === 'state').tick;
+  check('the simulation stands still while paused', tickA === tickB, `tick ${tickA} -> ${tickB}`);
+  B.ws.send(JSON.stringify({ t: 'pause', on: false }));
+  const resumed = await A.until((m) => m.t === 'pause' && !m.on, 3000);
+  check('the other driver can resume', !!resumed);
+  await A.until((m) => m.t === 'state' && m.tick > tickB + 5, 3000);
+  check('ticks advance again after resume', true);
+
   // Leaving tells the other player.
   B.ws.close();
   const left = await A.until((m) => m.t === 'opponent_left', 3000);

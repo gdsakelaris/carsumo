@@ -15,6 +15,7 @@ const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 8787);
 const ROOM_SIZE = Math.max(2, Math.min(4, Number(process.env.ROOM_SIZE || 2)));
 const SNAPSHOT_EVERY = 3; // ticks (60 Hz sim -> 20 Hz snapshots)
+const PAUSE_MAX = 90000;  // ms a pause may last before the game resumes by itself
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
 let publicUrl = process.env.PUBLIC_URL || '';
 const JSM = path.join(ROOT, 'node_modules', 'three', 'examples', 'jsm');
@@ -81,6 +82,7 @@ class Room {
     this.last = performance.now();
     this.ready = new Set();
     this.closed = false;
+    this.paused = false; this.pausedAt = 0; this.pausedBy = '';
     this.pendingEv = [];
     for (const p of players) { p.room = this; }
     this.broadcast({ t: 'start', round: 1, map: this.map, players: players.map((p) => ({ id: p.id, name: p.name, type: p.type, bot: !!p.bot })), rules: RULES });
@@ -95,10 +97,23 @@ class Room {
     const prev = this.inputs.get(id);
     // One-shot presses (jump, ability) stay latched until a simulation step consumes them.
     this.inputs.set(id, { th: clamp(+inp.th || 0, -1, 1), st: clamp(+inp.st || 0, -1, 1),
-      jump: !!inp.jump || !!(prev && prev.jump), ab: !!inp.ab || !!(prev && prev.ab), brake: !!inp.brake, seq: Math.max(0, +inp.seq || 0) });
+      jump: !!inp.jump || !!(prev && prev.jump), ab: !!inp.ab || !!(prev && prev.ab), ab2: !!inp.ab2 || !!(prev && prev.ab2),
+      brake: !!inp.brake, seq: Math.max(0, +inp.seq || 0) });
+  }
+  // Either driver can pause with Esc; either can resume. A pause lifts itself after PAUSE_MAX ms.
+  setPaused(on, player) {
+    if (this.closed || this.world.phase === 'matchOver' || on === this.paused) return;
+    this.paused = on; this.pausedAt = performance.now(); this.pausedBy = player ? player.name : '';
+    this.acc = 0;
+    this.broadcast({ t: 'pause', on, by: this.pausedBy, max: PAUSE_MAX / 1000 });
   }
   tick(now) {
     if (this.closed) return;
+    if (this.paused) {
+      this.last = now;
+      if (now - this.pausedAt > PAUSE_MAX) this.setPaused(false, null);
+      return;
+    }
     this.acc += Math.min(0.25, (now - this.last) / 1000);
     this.last = now;
     let steps = 0;
@@ -108,7 +123,7 @@ class Room {
       stepWorld(this.world, this.inputs);
       for (const [id, inp] of this.inputs) if (inp.seq) this.appliedSeq.set(id, inp.seq);
       // One-shot inputs (jump, ability) are consumed once they are seen by a step.
-      for (const [id, inp] of this.inputs) { if (inp.jump || inp.ab) this.inputs.set(id, { ...inp, jump: false, ab: false }); }
+      for (const [id, inp] of this.inputs) { if (inp.jump || inp.ab || inp.ab2) this.inputs.set(id, { ...inp, jump: false, ab: false, ab2: false }); }
       for (const ev of this.world.events) {
         if (ev.type === 'roundEnd') this.broadcast({ t: 'round_end', winner: ev.winner, matchWinner: ev.matchWinner, round: this.world.round,
           score: Object.fromEntries(this.world.cars.map((c) => [c.id, c.wins])) });
@@ -135,6 +150,7 @@ class Room {
     this.ready.add(id);
     this.broadcast({ t: 'rematch_status', ready: [...this.ready] });
     if (this.players.every((p) => this.ready.has(p.id))) {
+      this.paused = false;
       resetMatch(this.world);
       this.ready.clear();
       for (const p of this.players) if (p.bot) this.ready.add(p.id);
@@ -193,6 +209,7 @@ wss.on('connection', (ws) => {
       }
       case 'input': if (client.room) client.room.setInput(client.id, msg); break;
       case 'rematch': if (client.room) client.room.rematch(client.id); break;
+      case 'pause': if (client.room) client.room.setPaused(msg.on == null ? !client.room.paused : !!msg.on, client); break;
       case 'leave': {
         if (client.room) client.room.leave(client);
         const qi = queue.indexOf(client); if (qi >= 0) { queue.splice(qi, 1); startMatchFromQueue(); }

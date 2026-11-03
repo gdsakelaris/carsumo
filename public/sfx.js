@@ -161,8 +161,12 @@ export class Sfx {
     this._burst(0.12 + s * 0.1, 260, 0.8, 0.5 + s * 0.4, 'lowpass', 0.2);
     this._ring([720 + s * 300, 1150 + s * 500, 1890 + s * 400], 0.3 + s * 0.35, 0.1 + s * 0.14);
   }
-  ability(kind) {
+  ability(kind, slot = 0) {
+    if (slot === 1) return this.ability2(kind);
     switch (kind) {
+      case 'greaser': this._sweep(0.9, 1400, 400, 0.28, 1.5, 0.3, 0.05); this._burst(0.8, 3200, 0.6, 0.18, 'highpass', 0.3); break;
+      case 'boomer': this._tone(1400, 0.07, 'square', 0.12, 700, 0.3); this._burst(0.08, 2200, 1, 0.22, 'bandpass', 0.3); setTimeout(() => this._tone(2200, 0.06, 'sine', 0.08, null, 0.3), 140); break;
+      case 'crane': this._burst(0.12, 4200, 1, 0.3, 'highpass', 0.3); this._thump(140, 50, 0.3, 0.5); this._ring([900, 1400], 0.35, 0.12); break;
       case 'bulldozer': this._thump(130, 38, 0.55, 0.7); this._burst(0.5, 220, 1, 0.5, 'lowpass', 0.3); this._tone(68, 0.75, 'sawtooth', 0.16, 150, 0.3); break;
       case 'flipper': this._tone(360, 0.28, 'square', 0.13, 1500, 0.35); this._burst(0.12, 3500, 1, 0.3, 'highpass', 0.3); this._ring([1500, 2400], 0.3, 0.1); break;
       case 'speedster': this._sweep(0.95, 350, 4500, 0.5, 1.0, 0.35, 0.08); this._tone(500, 0.9, 'sine', 0.07, 2600, 0.3); break;
@@ -172,6 +176,25 @@ export class Sfx {
       default: break;
     }
   }
+  ability2(kind) {
+    switch (kind) {
+      case 'bulldozer': this._burst(0.5, 420, 0.8, 0.42, 'bandpass', 0.3); this._thump(90, 30, 0.45, 0.65); this._ring([180, 240], 0.6, 0.14); break;
+      case 'flipper': this._sweep(0.3, 300, 1900, 0.3, 1.2, 0.3, 0.03); this._tone(220, 0.25, 'square', 0.1, 660, 0.3); break;
+      case 'speedster': this._burst(0.35, 2400, 2.5, 0.35, 'bandpass', 0.35); this._tone(1800, 0.3, 'triangle', 0.08, 1200, 0.3); break;
+      case 'anchor': this._thump(120, 30, 0.5, 0.95); this._sweep(0.5, 2200, 200, 0.5, 1.0, 0.4, 0.01); this._ring([240, 360], 0.6, 0.2); break;
+      case 'magnet': this._tone(900, 0.5, 'square', 0.12, 80, 0.4); this._sweep(0.45, 3200, 300, 0.4, 1.0, 0.4, 0.01); this._thump(100, 35, 0.4, 0.7); break;
+      case 'spinner': this._tone(600, 0.6, 'sawtooth', 0.08, 2400, 0.3); this._burst(0.15, 5000, 1, 0.25, 'highpass', 0.3); break;
+      case 'crane': this._thump(80, 30, 0.5, 0.7); this._burst(0.5, 300, 0.7, 0.4, 'lowpass', 0.3); this._ring([420, 610], 0.5, 0.15); break;
+      case 'greaser': this._burst(0.6, 2000, 2.0, 0.45, 'bandpass', 0.35); this._tone(1500, 0.55, 'triangle', 0.1, 1900, 0.3); break;
+      case 'boomer': this._thump(70, 20, 0.5, 1.0); this._burst(0.4, 600, 0.5, 0.8, 'lowpass', 0.4); this._burst(0.2, 3500, 0.8, 0.4, 'highpass', 0.4); break;
+      default: break;
+    }
+  }
+  explode() { this._thump(60, 18, 0.9, 1.2); this._burst(0.7, 500, 0.5, 1.0, 'lowpass', 0.5); this._burst(0.3, 2500, 0.7, 0.6, 'highpass', 0.5); this._ring([150, 210], 0.9, 0.2); }
+  clang(strength = 14) { const s = Math.min(1, strength / 20); this._ring([180, 270, 410, 690], 1.0 + s * 0.6, 0.25 + s * 0.2); this._thump(90, 30, 0.4, 0.6 + s * 0.5); this._burst(0.1, 1500, 0.8, 0.5, 'bandpass', 0.5); }
+  flipRoll() { this._burst(0.35, 700, 0.8, 0.5, 'bandpass', 0.4); this._ring([300, 450], 0.45, 0.14); this._thump(100, 40, 0.25, 0.5); }
+  upright() { this._tone(200, 0.15, 'triangle', 0.1, 420, 0.3); this._burst(0.08, 900, 0.8, 0.2, 'lowpass', 0.2); }
+  mineArm() { this._tone(2600, 0.05, 'sine', 0.07, null, 0.2); }
   jump() { this._burst(0.18, 4000, 0.8, 0.22, 'highpass', 0.2); this._tone(150, 0.12, 'triangle', 0.14, 320, 0.2); }
   land() { this._thump(70, 30, 0.18, 0.45); this._burst(0.1, 500, 0.8, 0.3, 'lowpass', 0.2); }
   splash(theme) {

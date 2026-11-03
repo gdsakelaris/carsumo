@@ -39,6 +39,8 @@ const PROFILES = {
   suv: (l) => [[-0.5, 0.36], [-0.5, 1.08], [-0.45, 1.64], [-0.42, 1.68], [0.09, 1.68], [0.25, 1.14], [0.47, 1.02], [0.5, 0.82], [0.5, 0.36]].map(([z, y]) => [z * l, y]),
   van: (l) => [[-0.5, 0.34], [-0.5, 1.56], [-0.46, 1.66], [0.27, 1.66], [0.43, 1.02], [0.5, 0.88], [0.5, 0.34]].map(([z, y]) => [z * l, y]),
   buggy: (l) => [[-0.5, 0.36], [-0.5, 0.96], [-0.12, 0.96], [-0.10, 1.24], [0.06, 1.26], [0.18, 0.92], [0.42, 0.82], [0.5, 0.64], [0.5, 0.36]].map(([z, y]) => [z * l, y]),
+  muscle: (l) => [[-0.5, 0.34], [-0.5, 0.82], [-0.36, 0.86], [-0.20, 1.18], [0.0, 1.20], [0.14, 0.90], [0.30, 0.84], [0.5, 0.76], [0.5, 0.34]].map(([z, y]) => [z * l, y]),
+  sedan: (l) => [[-0.5, 0.32], [-0.5, 0.80], [-0.40, 0.86], [-0.28, 0.88], [-0.14, 1.30], [0.05, 1.32], [0.20, 0.92], [0.42, 0.84], [0.5, 0.70], [0.5, 0.32]].map(([z, y]) => [z * l, y]),
 };
 // window segments as point indices [from, to] of the profile: windshield, rear window, and the roof segment for side glass
 const WINDOWS = {
@@ -47,8 +49,10 @@ const WINDOWS = {
   suv: { front: [4, 5], rear: [1, 2], roof: [3, 4] },
   van: { front: [3, 4], rear: [0, 1], roof: [2, 3] },
   buggy: { front: [4, 5], rear: null, roof: [3, 4] },
+  muscle: { front: [4, 5], rear: [2, 3], roof: [3, 4] },
+  sedan: { front: [5, 6], rear: [3, 4], roof: [4, 5] },
 };
-const KIND = { bulldozer: 'truck', flipper: 'sport', speedster: 'sport', anchor: 'suv', magnet: 'van', spinner: 'buggy', crane: 'truck' };
+const KIND = { bulldozer: 'truck', flipper: 'sport', speedster: 'sport', anchor: 'suv', magnet: 'van', spinner: 'buggy', crane: 'truck', greaser: 'muscle', boomer: 'sedan' };
 
 function bodyGeometry(pts, w) {
   const shape = new THREE.Shape();
@@ -159,8 +163,8 @@ export function buildCar(type, name) {
   const axleZ = kind === 'truck' ? [l * 0.36, -l * 0.3] : [l * 0.33, -l * 0.33];
   for (const sx of [-1, 1]) for (const sz of axleZ) wheel(sx, sz, w, group, steer, wheels);
 
-  let spin = null, wedge = null, blade = null, coil = null, block = null, claw = null, cable = null;
-  const plates = [], rams = [], fingers = [];
+  let spin = null, wedge = null, blade = null, coil = null, block = null, claw = null, cable = null, tank = null, nozzle = null;
+  const plates = [], rams = [], fingers = [], mines = [];
   switch (type) {
     case 'bulldozer': {
       blade = new THREE.Group(); blade.position.set(0, 0.78, l / 2 + 0.55);
@@ -257,8 +261,42 @@ export function buildCar(type, name) {
       for (let i = -1; i <= 1; i++) { const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.1), new THREE.MeshStandardMaterial({ color: 0xffb020, emissive: 0xff9a10, emissiveIntensity: 2.2 })); lamp.position.set(i * 0.5, 1.86, 0.06); group.add(lamp); }
       break;
     }
+    case 'greaser': {
+      // oil drum strapped across the rear deck, a spray nozzle under the tail, hood scoop, side pipes, fat rear tyres
+      tank = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, w * 0.8, 16), new THREE.MeshStandardMaterial({ color: 0x2a2a2e, roughness: 0.35, metalness: 0.8 }));
+      tank.rotation.z = Math.PI / 2; tank.position.set(0, pts[1][1] + 0.3, -l * 0.3); tank.castShadow = true; group.add(tank);
+      for (const sx of [-0.28, 0.28]) { const strap = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.03, 6, 20), chrome); strap.rotation.y = Math.PI / 2; strap.position.set(sx * w, pts[1][1] + 0.3, -l * 0.3); group.add(strap); }
+      const capM = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.1, 10), accent); capM.position.set(0, pts[1][1] + 0.7, -l * 0.3); group.add(capM);
+      nozzle = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 10), darkMetal); nozzle.rotation.x = Math.PI / 2; nozzle.position.set(0, 0.34, -l / 2 - 0.22); group.add(nozzle);
+      const scoop = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.16, 0.7), accent); scoop.position.set(0, pts[6][1] + 0.05, l * 0.22); group.add(scoop);
+      for (const sx of [-1, 1]) { const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, l * 0.45, 10), chrome); pipe.rotation.x = Math.PI / 2; pipe.position.set(sx * (w / 2 + 0.05), 0.28, -l * 0.05); group.add(pipe); }
+      for (const i of [1, 3]) wheels[i].scale.set(1.3, 1.1, 1.1);
+      break;
+    }
+    case 'boomer': {
+      // demolition derby: welded bumper bars front and rear, and a roof rack holding the two mines
+      for (const z of [1, -1]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(w * 1.1, 0.16, 0.16), darkMetal); bar.position.set(0, 0.64, z * (l / 2 + 0.16)); group.add(bar);
+        for (const sx of [-1, 1]) { const up = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.48, 0.12), darkMetal); up.position.set(sx * w * 0.38, 0.5, z * (l / 2 + 0.16)); group.add(up); }
+      }
+      const roofY = Math.max(pts[4][1], pts[5][1]);
+      const rack = new THREE.Mesh(new THREE.BoxGeometry(w * 0.72, 0.05, 0.9), darkMetal); rack.position.set(0, roofY + 0.04, -l * 0.04); group.add(rack);
+      const mineMat = new THREE.MeshStandardMaterial({ color: 0x2b2d31, roughness: 0.4, metalness: 0.8 });
+      const spikeMat = new THREE.MeshStandardMaterial({ color: def.color, emissive: def.color, emissiveIntensity: 0.8 });
+      for (const sx of [-0.5, 0.5]) {
+        const mg = new THREE.Group(); mg.position.set(sx * w * 0.36, roofY + 0.3, -l * 0.04);
+        mg.add(new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), mineMat));
+        for (let i = 0; i < 6; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 6), spikeMat); const a = (i / 6) * Math.PI * 2; sp.position.set(Math.cos(a) * 0.27, 0, Math.sin(a) * 0.27); sp.rotation.set(0, -a, -Math.PI / 2); mg.add(sp); }
+        const top = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 6), spikeMat); top.position.y = 0.28; mg.add(top);
+        group.add(mg); mines.push(mg);
+      }
+      const plateMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+      for (const sx of [-1, 1]) { const num = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.36, 0.5), plateMat); num.position.set(sx * (w / 2 + 0.005), 0.72, 0.1); group.add(num); }
+      break;
+    }
     default: break;
   }
   group.add(nameSprite(name, def.color));
-  return { type, def, group, body, bodyMat: paint, wheels, steer, spin, flame, flameMat, glowMat: glowMatP, headMat, tailMat, spot, wedge, rams, blade, plates, block, coil, claw, cable, fingers, boomTip: new THREE.Vector3(0, 3.9, 2.0), contact, trail: null, tilt: 0, roll: 0, spinA: 3, squat: 0, bob: 0, lastVf: 0, accel: 0 };
+  const roofY = Math.max(...pts.map((p) => p[1])) + (type === 'spinner' ? 0.3 : type === 'crane' ? 1.0 : type === 'anchor' ? 0.45 : 0.05);
+  return { type, def, group, body, bodyMat: paint, wheels, steer, spin, flame, flameMat, glowMat: glowMatP, headMat, tailMat, spot, wedge, rams, blade, plates, block, coil, claw, cable, fingers, tank, nozzle, mines, roofY, boomTip: new THREE.Vector3(0, 3.9, 2.0), contact, trail: null, tilt: 0, roll: 0, spinA: 3, squat: 0, bob: 0, lastVf: 0, accel: 0 };
 }
