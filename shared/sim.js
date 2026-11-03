@@ -25,7 +25,7 @@ export const RULES = {
   grabReach: 4.6,       // how far in front the claw reaches
   carryDist: 2.8,       // where a carried car hangs, in front of the crane
   carryHeight: 2.2,
-  carryMax: 1.5,        // seconds a grabbed car is carried before the claw lets go
+  carryMax: 1.0,        // seconds a grabbed car is carried before the claw lets go
   bumpE: 0.6,           // restitution of a plain car-to-car bump
   bumpShove: 0.5,       // extra push on the car that is hit, as a fraction of the closing speed
   bumpShoveMax: 9,

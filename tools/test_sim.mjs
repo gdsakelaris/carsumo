@@ -243,9 +243,9 @@ check('jump cooldown is three seconds', RULES.jumpCd === 3);
   check('the claw grabs the car in front', grabbed && v.y > 1.5, `held at y ${v.y.toFixed(2)}`);
   const t0 = w.time; let carrySpeed = 0, released = -1;
   for (let i = 0; i < 60 * 4; i++) { inp.set('a', { ...idle, th: i < 36 ? 1 : -1 }); stepWorld(w, inp); if (v.heldBy === 'a') carrySpeed = Math.max(carrySpeed, speed(cr)); else if (released < 0) released = w.time - t0; }
-  check('the carry ends on its own within 1.5 s', released > 1.2 && released <= RULES.carryMax + 0.05, `${released.toFixed(2)} s`);
+  check(`the carry ends on its own after ${RULES.carryMax} s`, released > RULES.carryMax - 0.1 && released <= RULES.carryMax + 0.05, `${released.toFixed(2)} s`);
   const wf = createWorld(players('crane', 'speedster')); const inpf = new Map(); let freeSpeed = 0; wf.phase = 'play'; wf.cars[1].x = 15; wf.cars[1].z = 15;
-  for (let i = 0; i < 60 * 3; i++) { inpf.set('a', { ...idle, th: 1 }); stepWorld(wf, inpf); freeSpeed = Math.max(freeSpeed, speed(wf.cars[0])); }
+  for (let i = 0; i < 60 * 3; i++) { inpf.set('a', { ...idle, th: 1 }); stepWorld(wf, inpf); if (wf.cars[0].onGround) freeSpeed = Math.max(freeSpeed, speed(wf.cars[0])); }
   check('the Wrecker crawls while carrying', carrySpeed < freeSpeed * 0.65, `${carrySpeed.toFixed(1)} m/s carrying vs ${freeSpeed.toFixed(1)} free`);
   for (let i = 0; i < 60; i++) { inp.set('a', { ...idle }); stepWorld(w, inp); }
   check('the dropped car lands alive', v.onGround && v.alive && !v.heldBy, `y ${v.y.toFixed(2)} at (${v.x.toFixed(1)}, ${v.z.toFixed(1)})`);

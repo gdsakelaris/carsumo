@@ -87,7 +87,7 @@ export const CARS = {
     size: [2.5, 1.2, 3.6],
     abilities: [
       { name: 'Grab', duration: 0.45, cooldown: 10,
-        desc: 'Snap the claw down. What it catches is carried for 1.5 s while you crawl along, then dropped. Press again to drop early.' },
+        desc: 'Snap the claw down. What it catches is carried for 1 s while you crawl along, then dropped. Press again to drop early.' },
       { name: 'Jackknife', duration: 0.5, cooldown: 9,
         desc: 'Whip the truck round. The swing sweeps away anything it touches, and a car in the claw is flung sideways.' },
     ],
