@@ -439,7 +439,7 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Escape') { if (S.mode === 'playing' && performance.now() - S.escGuard > 400) togglePause(); return; }
   if (S.paused) return;
   S.keys.add(e.code);
-  if (e.code === 'KeyC') S.jumpLatch = true;
+  if (e.code === 'Space') { S.jumpLatch = true; if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur(); }
   if (e.code === 'KeyE') S.abLatch = true;
   if (e.code === 'KeyQ') S.ab2Latch = true;
   if (e.code === 'KeyV') toggleCam();
@@ -447,7 +447,7 @@ addEventListener('keydown', (e) => {
   S.gesture = true; sfx.init(); sfx.resume();
 });
 addEventListener('pointerdown', () => { S.gesture = true; sfx.init(); sfx.resume(); });
-addEventListener('keyup', (e) => S.keys.delete(e.code));
+addEventListener('keyup', (e) => { S.keys.delete(e.code); if (e.code === 'Space' && S.mode === 'playing') e.preventDefault(); });
 addEventListener('blur', () => S.keys.clear());
 canvas.addEventListener('mousedown', (e) => { if (S.mode === 'playing' && !S.touch && !S.paused) { if (e.button === 0) S.abLatch = true; if (e.button === 2) S.ab2Latch = true; captureMouse(); } });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -493,7 +493,7 @@ function computeInput() {
   let th = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
   let st = (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) - (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0);
   if (T.id != null) { if (Math.abs(T.y) > 0.15) th = clamp(-T.y * 1.25, -1, 1); if (Math.abs(T.x) > 0.12) st = clamp(-T.x * 1.3, -1, 1); }
-  return { th, st, brake: k.has('Space') || k.has('ShiftLeft') || k.has('ShiftRight') || T.brake };
+  return { th, st, brake: k.has('KeyC') || k.has('ShiftLeft') || k.has('ShiftRight') || T.brake };
 }
 function sendInput(now) {
   if (now - S.lastSend < 33) return;

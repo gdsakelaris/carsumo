@@ -65,11 +65,11 @@ new map is a few lines of bumpers, holes or balls. A ball's position is a pure f
 | Action | Keys |
 |---|---|
 | Drive | W A S D or arrows |
-| Jump | C (3 s cooldown) |
+| Jump | Space (3 s cooldown) |
 | Ability 1 | E or left click |
 | Ability 2 | Q or right click |
 | Pause | Esc (either driver; either driver resumes; lifts itself after 90 s) |
-| Brake / drift | Space (Shift also works): less grip, sharper turn |
+| Brake / drift | C (Shift also works): less grip, sharper turn |
 | Camera | V (chase cam or arena cam) |
 | Look around | Mouse (captured when you start driving; Esc releases it) |
 | Zoom | Mouse wheel |
