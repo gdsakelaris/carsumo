@@ -325,13 +325,41 @@ function shock(type, slot) {
   const rp = shock('magnet', 1); check('repulsion throws them apart and recoils', rp.b.vz > 6 && rp.a.vz < -2, `them ${rp.b.vz.toFixed(1)}, me ${rp.a.vz.toFixed(1)}`);
   const bj = shock('boomer', 1); check('blast jump hops and knocks the neighbour back', bj.b.vz > 4 && bj.a.vy > 5 && !bj.a.onGround, `them ${bj.b.vz.toFixed(1)}, vy ${bj.a.vy.toFixed(1)}`);
 }
-// 25. Snap turn spins the speedster round; Gyro counter hurls a charging car back; Pounce leaps forward.
+// 25. Pulse: the rename, Sonic boom throws every car in range out the same distance, Nitro rams blast a car back.
+//     Then: Gyro counter hurls a charging car back; Pounce leaps forward.
 {
-  const w = createWorld(players('speedster', 'anchor')); const inp = new Map(); const a = w.cars[0];
-  a.x = 0; a.z = 0; a.h = 0; a.vz = 15; w.phase = 'play'; w.cars[1].x = 15; w.cars[1].z = 15;
+  check('the speedster is called Pulse', CARS.speedster.name === 'Pulse' && CARS.speedster.abilities[1].name === 'Sonic boom');
+  // a heavy car close in, a light car further out, and a car just outside the range
+  const w = createWorld([{ id: 'a', name: 'A', type: 'speedster' }, { id: 'b', name: 'B', type: 'anchor' }, { id: 'c', name: 'C', type: 'greaser' }, { id: 'd', name: 'D', type: 'magnet' }]);
+  const inp = new Map(); const [pu, near, far, out] = w.cars;
+  pu.x = 0; pu.z = 0; pu.h = 0; near.x = 3; near.z = 0; near.h = 0; far.x = -6; far.z = 0; far.h = 0; out.x = 0; out.z = RULES.boomR + 1.5; out.h = 0; w.phase = 'play';
+  const d0 = [near, far, out].map((o) => Math.hypot(o.x - pu.x, o.z - pu.z));
   inp.set('a', { ...idle, ab2: true }); stepWorld(w, inp);
-  for (let i = 0; i < 20; i++) { inp.set('a', { ...idle }); stepWorld(w, inp); }
-  check('snap turn whips the car round 180', Math.abs(Math.atan2(Math.sin(a.h), Math.cos(a.h))) > 2.9, `h ${a.h.toFixed(2)}`);
+  for (let i = 0; i < 60; i++) { inp.set('a', { ...idle }); stepWorld(w, inp); }
+  const moved = [near, far, out].map((o, i) => Math.hypot(o.x, o.z) - d0[i]);
+  check('sonic boom throws the heavy car out the full distance', Math.abs(moved[0] - RULES.boomDist) < 0.6, `anchor moved ${moved[0].toFixed(2)} m`);
+  check('sonic boom throws the light car out the same distance', Math.abs(moved[1] - RULES.boomDist) < 0.6 && Math.abs(moved[1] - moved[0]) < 0.4, `greaser moved ${moved[1].toFixed(2)} m`);
+  check('a car outside the sonic boom is left alone', Math.abs(moved[2]) < 0.2, `magnet moved ${moved[2].toFixed(2)} m`);
+  check('sonic boom throws straight outward', Math.abs(near.z) < 0.2 && Math.abs(far.z) < 0.2 && near.x > 9 && far.x < -12, `anchor (${near.x.toFixed(1)}, ${near.z.toFixed(1)}), greaser (${far.x.toFixed(1)}, ${far.z.toFixed(1)})`);
+  check('thrown cars get control back after the boom', near.blastT === 0 && near.hitStun === 0 && far.blastT === 0);
+  // Nitro ram vs the same hit with no boost: same car, same speed, same victim
+  const ram = (nitro) => {
+    const w3 = createWorld(players('speedster', 'magnet')); const inp3 = new Map(); const a = w3.cars[0], b = w3.cars[1];
+    a.x = 0; a.z = -8; a.h = 0; a.vx = 0; a.vz = 22; b.x = 0; b.z = 0; b.h = Math.PI / 2; w3.phase = 'play';
+    if (nitro) a.abT[0] = 1.3;
+    let peak = 0, blast = false;
+    for (let i = 0; i < 60 * 1.5; i++) { inp3.set('a', { ...idle }); stepWorld(w3, inp3); peak = Math.max(peak, speed(b)); if (w3.events.some((e) => e.type === 'blast')) blast = true; }
+    return { peak, blast, boostLeft: a.abT[0], dist: b.z };
+  };
+  const plain = ram(false), boosted = ram(true);
+  check('a nitro ram blasts the other car back far harder than a plain hit', boosted.blast && !plain.blast && boosted.peak > plain.peak * 1.6, `${plain.peak.toFixed(1)} vs ${boosted.peak.toFixed(1)} m/s`);
+  check('the nitro ram throws the car a long way', boosted.dist > plain.dist + 6, `${plain.dist.toFixed(1)} m vs ${boosted.dist.toFixed(1)} m`);
+  check('the boost is spent on the blast', boosted.boostLeft === 0);
+  // a braced anchor shrugs a nitro ram off
+  const wb = createWorld(players('speedster', 'anchor')); const inpb = new Map(); const pa = wb.cars[0], an = wb.cars[1];
+  pa.x = 0; pa.z = -8; pa.h = 0; pa.vz = 22; pa.abT[0] = 1.3; an.x = 0; an.z = 0; an.h = Math.PI / 2; an.abT[0] = 1.75; wb.phase = 'play';
+  let anPeak = 0; for (let i = 0; i < 60; i++) { inpb.set('a', { ...idle }); stepWorld(wb, inpb); anPeak = Math.max(anPeak, speed(an)); }
+  check('a braced anchor absorbs a nitro ram', anPeak < 5, `${anPeak.toFixed(1)} m/s`);
   const w2 = createWorld(players('spinner', 'speedster')); const inp2 = new Map(); const s = w2.cars[0], v = w2.cars[1];
   s.x = 0; s.z = 0; s.h = 0; v.x = 0; v.z = -8; v.h = 0; v.vz = 14; w2.phase = 'play';
   let countered = false;

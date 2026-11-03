@@ -180,7 +180,9 @@ export class Sfx {
     switch (kind) {
       case 'bulldozer': this._burst(0.5, 420, 0.8, 0.42, 'bandpass', 0.3); this._thump(90, 30, 0.45, 0.65); this._ring([180, 240], 0.6, 0.14); break;
       case 'flipper': this._sweep(0.3, 300, 1900, 0.3, 1.2, 0.3, 0.03); this._tone(220, 0.25, 'square', 0.1, 660, 0.3); break;
-      case 'speedster': this._burst(0.35, 2400, 2.5, 0.35, 'bandpass', 0.35); this._tone(1800, 0.3, 'triangle', 0.08, 1200, 0.3); break;
+      case 'speedster': // sonic boom: the crack, the low punch, and the air rushing back in
+        this._burst(0.05, 6500, 0.7, 1.0, 'highpass', 0.5); this._thump(85, 20, 0.9, 1.2); this._burst(0.5, 300, 0.6, 0.7, 'lowpass', 0.5);
+        this._sweep(0.8, 3500, 160, 0.5, 0.8, 0.6, 0.005); setTimeout(() => this._burst(0.35, 1800, 0.6, 0.25, 'bandpass', 0.6), 90); break;
       case 'anchor': this._thump(120, 30, 0.5, 0.95); this._sweep(0.5, 2200, 200, 0.5, 1.0, 0.4, 0.01); this._ring([240, 360], 0.6, 0.2); break;
       case 'magnet': this._tone(900, 0.5, 'square', 0.12, 80, 0.4); this._sweep(0.45, 3200, 300, 0.4, 1.0, 0.4, 0.01); this._thump(100, 35, 0.4, 0.7); break;
       case 'spinner': this._tone(600, 0.6, 'sawtooth', 0.08, 2400, 0.3); this._burst(0.15, 5000, 1, 0.25, 'highpass', 0.3); break;
@@ -190,6 +192,7 @@ export class Sfx {
       default: break;
     }
   }
+  blast() { this.explode(); this._burst(0.06, 5000, 0.8, 0.7, 'highpass', 0.4); this._ring([260, 390, 620], 0.7, 0.2); }
   explode() { this._thump(60, 18, 0.9, 1.2); this._burst(0.7, 500, 0.5, 1.0, 'lowpass', 0.5); this._burst(0.3, 2500, 0.7, 0.6, 'highpass', 0.5); this._ring([150, 210], 0.9, 0.2); }
   clang(strength = 14) { const s = Math.min(1, strength / 20); this._ring([180, 270, 410, 690], 1.0 + s * 0.6, 0.25 + s * 0.2); this._thump(90, 30, 0.4, 0.6 + s * 0.5); this._burst(0.1, 1500, 0.8, 0.5, 'bandpass', 0.5); }
   flipRoll() { this._burst(0.35, 700, 0.8, 0.5, 'bandpass', 0.4); this._ring([300, 450], 0.45, 0.14); this._thump(100, 40, 0.25, 0.5); }

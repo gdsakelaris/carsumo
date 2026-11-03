@@ -30,16 +30,16 @@ export const CARS = {
     passive: { name: 'Spring suspension', desc: 'Hits never stun it.' },
   },
   speedster: {
-    name: 'Speedster', color: 0xffe14a, accent: 0x7a6a10,
+    name: 'Pulse', color: 0xffe14a, accent: 0x7a6a10,
     mass: 0.85, accel: 28, topSpeed: 20, reverseSpeed: 9, turnRate: 3.0, grip: 6, radius: 1.15,
     size: [2.0, 0.8, 3.2],
     abilities: [
       { name: 'Nitro', duration: 1.3, cooldown: 5,
-        desc: 'Rocket boost. Huge speed for a moment; light, so hits send you far.' },
-      { name: 'Snap turn', duration: 0.25, cooldown: 5,
-        desc: 'Kill your momentum and whip the car round toward where you are steering (a full 180 if you are not). Bait them off the edge.' },
+        desc: 'Rocket boost. Ram a car mid-boost and it is blasted backwards, hard; the boost is spent on the hit.' },
+      { name: 'Sonic boom', duration: 0.3, cooldown: 9,
+        desc: 'Break the sound barrier. Every car within 7.5 m is thrown straight out another 7.5 m, however heavy it is.' },
     ],
-    tagline: 'Fastest car on the deck. Fragile.',
+    tagline: 'Fastest car on the deck. Fragile, and loud.',
     passive: { name: 'Light feet', desc: 'Jump cooldown 2 s instead of 3.' }, jumpCd: 2,
   },
   anchor: {

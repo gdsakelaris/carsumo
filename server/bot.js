@@ -2,6 +2,7 @@
 // when the geometry is right, dodges wrecking balls, mines and oil, and sometimes hops over a ram.
 import { CARS } from '../shared/cars.js';
 import { MAPS, inHole, ballPose } from '../shared/maps.js';
+import { RULES } from '../shared/sim.js';
 
 export function createBotBrain(id) {
   return { id, nextThink: 0, input: { th: 0, st: 0, jump: false, ab: false, ab2: false, brake: false }, jumpUntil: 0 };
@@ -60,7 +61,7 @@ export function botInput(world, brain) {
     case 'bulldozer': inp.ab = aligned && dist < 9 && dist > 3; inp.ab2 = dist < 5 && closing > 5 && !aligned; break;
     case 'flipper': inp.ab = aligned && dist < 4.5; inp.ab2 = aligned && dist > 5 && dist < 9 && foe.onGround; break;
     case 'spinner': inp.ab = dist < 7; inp.ab2 = dist < 5 && closing > 7 && foe.abT[0] > 0; break;
-    case 'speedster': inp.ab = aligned && dist < 16 && dist > 6; inp.ab2 = margin < 3 && outward > 0.5 && Math.hypot(me.vx, me.vz) > 6; break;
+    case 'speedster': inp.ab = aligned && dist < 16 && dist > 6; inp.ab2 = dist < RULES.boomR - 0.8 && (foeR > myR + 1 || closing > 7); break;
     case 'magnet': inp.ab = dist > 6 && dist < 15 && aligned; inp.ab2 = dist < 5 && foeR > myR + 2 && foeR > world.platformR - 8; break;
     case 'anchor': inp.ab = dist < 6 && closing > 6 && !justHit; inp.ab2 = dist < 5 && (justHit || foeR > world.platformR - 6); break;
     case 'crane': inp.ab = carrying ? margin < 3.4 : (aligned && dist < 4.4 && dist > 1.4 && foe.onGround); inp.ab2 = carrying ? margin < 5.5 : beside; break;
@@ -69,7 +70,7 @@ export function botInput(world, brain) {
     default: break;
   }
   // Dodge: a foe charging at me with an active ability, close by: hop sometimes.
-  const foeRam = foe.abT[0] > 0 && (foe.type === 'bulldozer' || foe.type === 'spinner' || foe.type === 'flipper');
+  const foeRam = foe.abT[0] > 0 && (foe.type === 'bulldozer' || foe.type === 'spinner' || foe.type === 'flipper' || foe.type === 'speedster');
   if (foeRam && dist < 6 && closing > 5 && me.jumpCd <= 0 && Math.random() < 0.35) inp.jump = true;
   // Don't drive hard at a braced anchor or a dug-in bulldozer.
   if ((foe.type === 'anchor' && foe.abT[0] > 0 || foe.type === 'bulldozer' && foe.abT[1] > 0) && dist < 7) { inp.th = -0.5; inp.st = 0; }

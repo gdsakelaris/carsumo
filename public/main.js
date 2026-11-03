@@ -132,12 +132,12 @@ function simCarFromSnap(c) {
   return { id: c.id, name: c.id, type: playerType(c.id), x: c.x, y: c.y, z: c.z, vx: c.vx, vy: c.vy, vz: c.vz, h: c.h,
     onGround: !!c.g, alive: !!c.a, abT: [c.ab[0], c.ab[1]], abCd: [c.cd[0], c.cd[1]], jumpCd: c.jc, hitStun: c.st, wins: c.w,
     hv: c.hv || 0, coyote: c.co || 0, magnetT: c.mg || 0, holding: c.hd || null, heldBy: c.hb || null, lastAbilityHitFrom: null, lastAbilityHitT: -9,
-    freeT: 0, freeFrom: null, skidT: c.sk || 0, oilT: c.ol || 0, lastHitT: c.lh ?? -9, snapA: c.sa || 0, swingDir: c.sw || 0, oilDropT: 0, ballHitT: 0, flipT: c.fl || 0 };
+    freeT: 0, freeFrom: null, skidT: c.sk || 0, oilT: c.ol || 0, lastHitT: c.lh ?? -9, blastT: c.bt || 0, bvx: c.bx || 0, bvz: c.bz || 0, swingDir: c.sw || 0, oilDropT: 0, ballHitT: 0, flipT: c.fl || 0 };
 }
 function snapCarFromSim(c) {
   return { id: c.id, x: c.x + P.err.x, y: c.y, z: c.z + P.err.z, h: c.h + P.err.h, vx: c.vx, vz: c.vz, vy: c.vy,
     g: c.onGround ? 1 : 0, a: c.alive ? 1 : 0, ab: c.abT, cd: c.abCd, jc: c.jumpCd, st: c.hitStun, w: c.wins, hd: c.holding || 0, hb: c.heldBy || 0,
-    sk: c.skidT, ol: c.oilT, sw: c.swingDir, fl: c.flipT };
+    sk: c.skidT, ol: c.oilT, sw: c.swingDir, fl: c.flipT, bt: c.blastT };
 }
 function reconcile(snap) {
   const sc = snap.cars.find((c) => c.id === S.myId); if (!sc) { P.car = null; return; }
@@ -200,6 +200,14 @@ function throwFx(ev) {
 function shockFx(ev) {
   const col = playerColor(ev.id);
   shockRing(ev.x, ev.z, col, (ev.r || 6) * 1.6, 0.55); impactFlash(ev.x, 1.2, ev.z, col, ev.big ? 7 : 5, 0.3);
+  if (ev.boom) {
+    // sonic boom: a hard white shock front racing out past the blue one, a dome flash, a cracked-air shimmer of sparks
+    shockRing(ev.x, ev.z, 0xffffff, (ev.r || 7.5) * 2.1, 0.32, 0.12); shockRing(ev.x, ev.z, 0xbfe6ff, (ev.r || 7.5) * 1.2, 0.7, 0.9);
+    impactFlash(ev.x, 1.4, ev.z, 0xffffff, 10, 0.18); burst(ev.x, 1.0, ev.z, 0xdff2ff, 40, 22, 0.35, 2, 3);
+    const me = S.latest && S.latest.cars.find((q) => q.id === S.myId); const dd = me ? Math.hypot(me.x - ev.x, me.z - ev.z) : 99;
+    if (ev.id === S.myId) S.shake = Math.max(S.shake, 0.6);
+    else if (dd < (ev.r || 7.5) + 2) { flash(0.3); S.shake = Math.max(S.shake, 1.1); }
+  }
   for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; puff(ev.x + Math.sin(a) * 1.8, 0.4, ev.z + Math.cos(a) * 1.8, 1.6, 0x9a9088, 0.8, 0.5, Math.sin(a) * 7, Math.cos(a) * 7, 0.45); }
   if (ev.id === S.myId) S.shake = Math.max(S.shake, 0.6);
 }
@@ -215,9 +223,9 @@ function abilityFx(car, slot, x, z, id) {
     if (id === S.myId) { S.shake = Math.max(S.shake, car === 'bulldozer' ? 0.5 : 0.25); if (car === 'speedster') flash(0.18); }
   } else {
     // shockwaves draw their own ring from the 'shock' event; the rest get a small flash at the car
-    if (!['anchor', 'magnet', 'boomer'].includes(car)) { shockRing(x, z, col, 3.5, 0.3); impactFlash(x, 1.0, z, col, 2.5, 0.15); }
+    if (!['anchor', 'magnet', 'boomer', 'speedster'].includes(car)) { shockRing(x, z, col, 3.5, 0.3); impactFlash(x, 1.0, z, col, 2.5, 0.15); }
     if (car === 'bulldozer') for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; puff(x + Math.sin(a) * 1.8, 0.3, z + Math.cos(a) * 1.8, 1.4, 0x8a8078, 0.9, 0.4, Math.sin(a) * 2, Math.cos(a) * 2, 0.45); }
-    if (id === S.myId) S.shake = Math.max(S.shake, car === 'boomer' || car === 'anchor' ? 0.7 : 0.3);
+    if (id === S.myId) S.shake = Math.max(S.shake, car === 'boomer' || car === 'anchor' || car === 'speedster' ? 0.7 : 0.3);
   }
 }
 
@@ -286,6 +294,15 @@ function onSnapshot(m) {
         sfx.clang(ev.s || 14);
         const vm = S.meshes.get(ev.id); if (vm) vm.flashT = now;
         if (ev.id === S.myId) { S.shake = 1.4; flash(0.35); } else S.shake = Math.max(S.shake, 0.4);
+        break;
+      }
+      case 'blast': {
+        // Nitro ram: a fireball at the contact and a hard flash
+        burst(ev.x, ev.y || 1, ev.z, 0xffb040, 70, 20, 0.7, 14, 3); burst(ev.x, ev.y || 1, ev.z, 0xffffff, 20, 12, 0.3);
+        impactFlash(ev.x, (ev.y || 1) + 0.3, ev.z, 0xffc070, 10, 0.35); shockRing(ev.x, ev.z, 0xffa040, 8, 0.45);
+        for (let i = 0; i < 8; i++) puff(ev.x + (Math.random() - 0.5) * 1.5, (ev.y || 1), ev.z + (Math.random() - 0.5) * 1.5, 2.0, 0x2a2420, 1.2, 1.8, (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5, 0.5);
+        sfx.blast();
+        if (ev.to === S.myId) { S.shake = 1.5; flash(0.4); } else if (ev.from === S.myId) { S.shake = 1.0; flash(0.2); }
         break;
       }
       case 'flipped': { sfx.flipRoll(); for (let i = 0; i < 5; i++) puff(ev.x, 0.6, ev.z, 1.3, 0x9a9088, 0.8, 0.9, 0, 0, 0.4); if (ev.id === S.myId) { S.shake = 1.0; flash(0.2); } break; }
@@ -670,9 +687,9 @@ function updateCars(st, dt, now) {
     // tyre smoke and marks
     const slip = Math.abs(vlat);
     const onOil = (c.ol || 0) > 0;
-    const snapTurn = active2 && m.type === 'speedster';
-    const drifting = c.g && !flipped && (slip > 3.5 || swinging || snapTurn || (id === S.myId && S.input.brake && speed > 5));
-    if (id === S.myId) mySkid = c.g ? clamp((slip - 2.5) / 6, 0, 1) + (S.input.brake && speed > 5 ? 0.6 : 0) + (swinging || snapTurn ? 0.8 : 0) : 0;
+    const blasted = (c.bt || 0) > 0;
+    const drifting = c.g && !flipped && (slip > 3.5 || swinging || blasted || (id === S.myId && S.input.brake && speed > 5));
+    if (id === S.myId) mySkid = c.g ? clamp((slip - 2.5) / 6, 0, 1) + (S.input.brake && speed > 5 ? 0.6 : 0) + (swinging || blasted ? 0.8 : 0) : 0;
     if ((drifting || boosting) && now - (m.puffT || 0) > 45) {
       m.puffT = now;
       const l = m.def.size[2], w = m.def.size[0];

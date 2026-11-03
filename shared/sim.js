@@ -41,6 +41,10 @@ export const RULES = {
   ballKick: 0.9,        // car speed after a wrecking ball hit, as a fraction of the closing speed
   ballMinKick: 9,
   ballLift: 6,
+  boomR: 7.5,           // Sonic boom: every car within this range of the Pulse...
+  boomDist: 7.5,        // ...is thrown this far straight outward, whatever it weighs
+  boomT: 0.4,           // over this long (an ease-out slide)
+  nitroBlast: 20,       // how hard a car rammed by the Pulse mid-Nitro is blasted back (scaled by its weight)
 };
 
 export const NULL_INPUT = Object.freeze({ th: 0, st: 0, jump: false, ab: false, ab2: false, brake: false });
@@ -66,7 +70,7 @@ function freshState() {
     vx: 0, vy: 0, vz: 0, onGround: true, alive: true,
     abT: [0, 0], abCd: [0, 0], jumpCd: 0, hitStun: 0, hv: 0, magnetT: 0, coyote: 0,
     holding: null, heldBy: null, freeT: 0, freeFrom: null, lastAbilityHitFrom: null, lastAbilityHitT: -9,
-    skidT: 0, oilT: 0, lastHitT: -9, snapA: 0, swingDir: 0, oilDropT: 0, ballHitT: 0, flipT: 0,
+    skidT: 0, oilT: 0, lastHitT: -9, swingDir: 0, oilDropT: 0, ballHitT: 0, flipT: 0, blastT: 0, bvx: 0, bvz: 0,
   };
 }
 
@@ -206,7 +210,6 @@ function stepCar(world, c, inp, dt, live) {
     if (inp.ab2 && c.abCd[1] <= 0 && c.abT[1] <= 0) activate(world, c, 1, st);
   }
   const nitro = c.type === 'speedster' && on(c, 0);
-  const snap = c.type === 'speedster' && on(c, 1);
   const ram = c.type === 'bulldozer' && on(c, 0);
   const blade = c.type === 'bulldozer' && on(c, 1);
   const brace = c.type === 'anchor' && on(c, 0);
@@ -240,7 +243,15 @@ function stepCar(world, c, inp, dt, live) {
   if (c.onGround && c.alive && c.type !== 'greaser' && world.oil.length && onOil(world, c)) c.oilT = 0.15;
   const oily = c.oilT > 0;
 
-  if (c.alive && c.onGround) {
+  // thrown by a sonic boom: an ease-out slide of exactly boomDist, no matter its weight, grip or input
+  const blasting = c.blastT > 0;
+  if (blasting) {
+    c.blastT = Math.max(0, c.blastT - dt);
+    const k = Math.max(0, (c.blastT + dt / 2) / RULES.boomT);
+    c.vx = c.bvx * k; c.vz = c.bvz * k;
+  }
+
+  if (c.alive && c.onGround && !blasting) {
     const fx = Math.sin(c.h), fz = Math.cos(c.h);
     const rx = fz, rz = -fx;
     let vf = c.vx * fx + c.vz * fz;
@@ -268,9 +279,7 @@ function stepCar(world, c, inp, dt, live) {
       if (c.flipT > 0) { vf *= Math.max(0, 1 - 2.5 * dt); grip = 2.5; } // on its roof: scrapes to a stop, but any push still moves it
       if (swing && c.type === 'greaser') grip *= 0.3;
       vl *= Math.max(0, 1 - grip * dt);
-      if (snap) {
-        c.h += (c.snapA / def.abilities[1].duration) * dt;
-      } else if (swing) {
+      if (swing) {
         const total = c.type === 'crane' ? 1.7 : 2.4;
         c.h += c.swingDir * (total / def.abilities[1].duration) * dt;
       } else {
@@ -293,7 +302,7 @@ function stepCar(world, c, inp, dt, live) {
 
   if (!c.onGround) {
     c.vy -= RULES.gravity * dt;
-    if (c.alive && live) {
+    if (c.alive && live && !blasting) {
       // air control: a little steering and nudge; brake = dive back down
       c.h += st * def.turnRate * 0.35 * dt;
       const afx = Math.sin(c.h), afz = Math.cos(c.h);
@@ -388,9 +397,21 @@ function activate(world, c, slot, st) {
     return;
   }
   switch (c.type) {
-    case 'speedster': { // Snap turn: kill momentum, whip round toward the steering side (180 if none)
-      c.vx *= 0.35; c.vz *= 0.35;
-      c.snapA = st ? Math.sign(st) * 2.0 : Math.PI;
+    case 'speedster': { // Sonic boom: every car in range is thrown straight out the same distance
+      const v0 = (2 * RULES.boomDist) / RULES.boomT;
+      for (const o of world.cars) {
+        if (o === c || !o.alive || o.heldBy) continue;
+        let dx = o.x - c.x, dz = o.z - c.z; const d = Math.hypot(dx, dz);
+        if (d > RULES.boomR || Math.abs(o.y - c.y) > 3) continue;
+        if (d < 1e-3) { dx = Math.sin(c.h); dz = Math.cos(c.h); } else { dx /= d; dz /= d; }
+        o.blastT = RULES.boomT; o.bvx = dx * v0; o.bvz = dz * v0;
+        o.hitStun = Math.max(o.hitStun, (RULES.boomT + 0.2) * stunK(o));
+        o.skidT = Math.max(o.skidT, RULES.boomT + 0.3); o.lastHitT = world.time;
+        o.lastAbilityHitFrom = c.id; o.lastAbilityHitT = world.time;
+        if (o.holding) { const v = world.cars.find((q) => q.id === o.holding); releaseHeld(world, o, v, null); }
+        world.events.push({ type: 'abilityHit', from: c.id, to: o.id, car: c.type, slot: 1, x: o.x, z: o.z });
+      }
+      world.events.push({ type: 'shock', id: c.id, car: c.type, x: c.x, z: c.z, r: RULES.boomR, boom: true });
       break;
     }
     case 'flipper': { // Pounce: a long forward leap
@@ -576,6 +597,7 @@ function resolveCollisions(world) {
       const cx = cp.px + nx * (ca.r - overlap / 2), cz = cp.pz + nz * (ca.r - overlap / 2);
       const rvx = b.vx - a.vx, rvz = b.vz - a.vz;
       const vn = rvx * nx + rvz * nz;
+      const preA = a.vx * nx + a.vz * nz, preB = -(b.vx * nx + b.vz * nz); // how hard each drove into the contact
       if (vn < 0) {
         const e = RULES.bumpE;
         const jn = -(1 + e) * vn / (1 / mA + 1 / mB);
@@ -599,7 +621,7 @@ function resolveCollisions(world) {
         const vic = aAtt ? b : a, att = aAtt ? a : b, sgn = aAtt ? 1 : -1;
         const mv = effectiveMass(vic), ma = effectiveMass(att);
         // contact abilities (ram, brace, blade, wedge, sweeps) bring their own impulse, so the plain shove steps back
-        const attHits = (att.type === 'bulldozer' && on(att, 0)) || (att.type === 'anchor' && on(att, 0)) || (att.type === 'flipper' && on(att, 0))
+        const attHits = (att.type === 'bulldozer' && on(att, 0)) || (att.type === 'anchor' && on(att, 0)) || (att.type === 'flipper' && on(att, 0)) || (att.type === 'speedster' && on(att, 0))
           || (att.type === 'spinner' && (on(att, 0) || on(att, 1))) || ((att.type === 'crane' || att.type === 'greaser') && on(att, 1));
         const shove = Math.min(RULES.bumpShoveMax, RULES.bumpShove * -vn * (2 * ma / (ma + mv)) * (attHits ? 0.25 : 1) * (vic.type === 'bulldozer' && on(vic, 1) ? 0.3 : 1));
         vic.vx += nx * sgn * shove; vic.vz += nz * sgn * shove;
@@ -610,8 +632,8 @@ function resolveCollisions(world) {
         if (a.type === 'magnet' && b.type !== 'magnet') b.hitStun = Math.max(b.hitStun, 0.12 * stunK(b));
         if (b.type === 'magnet' && a.type !== 'magnet') a.hitStun = Math.max(a.hitStun, 0.12 * stunK(a));
       }
-      abilityHit(world, a, b, nx, nz, cx, cz);
-      abilityHit(world, b, a, -nx, -nz, cx, cz);
+      abilityHit(world, a, b, nx, nz, cx, cz, preA);
+      abilityHit(world, b, a, -nx, -nz, cx, cz, preB);
     }
   }
   // steel posts: very bouncy, and gone once the shrinking deck has passed them
@@ -726,15 +748,25 @@ export function predictStep(world, id, inp) {
   return world.events;
 }
 
-// att touches vic; n points from att to vic; (cx, cz) is the contact point.
-// Applied at most every 0.3 s per attacker/victim pair.
-function abilityHit(world, att, vic, nx, nz, cx, cz) {
+// att touches vic; n points from att to vic; (cx, cz) is the contact point; approach is how fast att was
+// driving into the contact before it was resolved. Applied at most every 0.3 s per attacker/victim pair.
+function abilityHit(world, att, vic, nx, nz, cx, cz, approach = 0) {
   if (att.abT[0] <= 0 && att.abT[1] <= 0) return;
   if (vic.lastAbilityHitFrom === att.id && world.time - vic.lastAbilityHitT < 0.3) return;
   const scale = victimScale(vic);
   const sk = stunK(vic);
   let hit = false, slot = 0;
   switch (att.type) {
+    case 'speedster': {
+      // Nitro ram: a car the Pulse drives into mid-boost is blasted backwards, and the boost is spent on it
+      if (!on(att, 0) || approach < 4) break;
+      vic.vx += nx * RULES.nitroBlast * scale; vic.vz += nz * RULES.nitroBlast * scale;
+      if (vic.type !== 'anchor') { vic.vy = Math.max(vic.vy, 4); vic.onGround = false; } // Low centre of gravity: stays down
+      vic.hitStun = Math.max(vic.hitStun, 0.6 * sk);
+      att.abT[0] = 0;
+      world.events.push({ type: 'blast', from: att.id, to: vic.id, x: cx, z: cz, y: (att.y + vic.y) / 2 + 0.6 });
+      hit = true; break;
+    }
     case 'bulldozer': {
       if (!on(att, 0)) break;
       vic.vx += nx * 15 * scale; vic.vz += nz * 15 * scale;
@@ -805,7 +837,7 @@ export function snapshot(world) {
       id: c.id, x: r3(c.x), y: r3(c.y), z: r3(c.z), h: r3(c.h), vx: r3(c.vx), vz: r3(c.vz), vy: r3(c.vy),
       g: c.onGround ? 1 : 0, a: c.alive ? 1 : 0, ab: [r3(c.abT[0]), r3(c.abT[1])], cd: [r3(c.abCd[0]), r3(c.abCd[1])], jc: r3(c.jumpCd),
       st: r3(c.hitStun), w: c.wins, hv: r3(c.hv), co: r3(c.coyote), mg: r3(c.magnetT), hd: c.holding || 0, hb: c.heldBy || 0,
-      sk: r3(c.skidT), ol: r3(c.oilT), sw: c.swingDir, lh: r3(c.lastHitT), fl: r3(c.flipT), sa: r3(c.snapA),
+      sk: r3(c.skidT), ol: r3(c.oilT), sw: c.swingDir, lh: r3(c.lastHitT), fl: r3(c.flipT), bt: r3(c.blastT), bx: r3(c.bvx), bz: r3(c.bvz),
     })),
   };
   if (world.oil.length) snap.oil = world.oil.map((o) => ({ x: r3(o.x), z: r3(o.z), r: o.r, t: r3(o.t), by: o.by }));
